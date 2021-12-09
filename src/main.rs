@@ -1,12 +1,8 @@
-use rodio::{source::Source, Decoder, OutputStream};
-use std::fs::File;
-use std::io::BufReader;
-
 mod sound;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get a output stream handle to the default physical sound device
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+    let stream_handle = sound::create_output_stream()?;
 
     sound::play_from_file(&stream_handle, "./test.mp3")?;
     sound::play_from_file(&stream_handle, "./test2.mp3")?;
