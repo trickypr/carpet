@@ -9,7 +9,9 @@ use std::{
 use orbtk::prelude::*;
 use sound::{loop_sounds, Sound};
 
+mod config;
 mod sound;
+mod sounds;
 
 static mut RX: Option<Sender<(usize, f32)>> = None;
 static mut SOUND: Option<Arc<Mutex<Vec<Sound>>>> = None;
@@ -54,29 +56,43 @@ widget!(MainView<MainState> {
 impl Template for MainView {
     fn template(self, id: Entity, ctx: &mut BuildContext) -> Self {
         self.count(0).sounds(vec![]).child(
-            ItemsWidget::new()
-                .count(id)
-                .items_builder(move |bc, index| {
-                    let sound_name = bc.get_widget(id).get::<SoundVec>("sounds")[index].clone();
-
-                    Stack::new()
-                        .child(TextBlock::new().text(sound_name).build(bc))
-                        .child(
-                            Slider::new()
-                                .id(format!("sound_{}", index))
-                                .min(0.0)
-                                .val(0.0)
-                                .max(1.0)
-                                .min_width(100)
-                                .on_changed("val", move |states, widget_id| {
-                                    states
-                                        .get_mut::<MainState>(id)
-                                        .change_volume((index, widget_id));
-                                })
-                                .build(bc),
-                        )
-                        .build(bc)
+            ScrollViewer::new()
+                .mode(ScrollViewerMode {
+                    horizontal: ScrollMode::Disabled,
+                    vertical: ScrollMode::Auto,
                 })
+                .child(
+                    ItemsWidget::new()
+                        .count(id)
+                        .items_builder(move |bc, index| {
+                            let sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
+
+                            let sound_name =
+                                bc.get_widget(id).get::<SoundVec>("sounds")[index].clone();
+
+                            let stack = Stack::new()
+                                .child(TextBlock::new().text(sound_name).build(bc))
+                                .child(
+                                    Slider::new()
+                                        .id(format!("sound_{}", index))
+                                        .min(0.0)
+                                        .val(sounds[index].volume)
+                                        .max(1.0)
+                                        .min_width(100)
+                                        .on_changed("val", move |states, widget_id| {
+                                            states
+                                                .get_mut::<MainState>(id)
+                                                .change_volume((index, widget_id));
+                                        })
+                                        .build(bc),
+                                )
+                                .build(bc);
+
+                            drop(sounds);
+                            stack
+                        })
+                        .build(ctx),
+                )
                 .build(ctx),
         )
     }
@@ -92,91 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get a output stream handle to the default physical sound device
     let (_stream, stream_handle) = sound::create_output_stream()?;
 
-    let mut sounds = Vec::new();
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/birds.ogg",
-        "Birds",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/boat.ogg",
-        "Boat",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/city.ogg",
-        "City",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/coffee-shop.ogg",
-        "Coffee Shop",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/fireplace.ogg",
-        "Fireplace",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/pink-noise.ogg",
-        "Pink Noise",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/rain.ogg",
-        "Rain",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/storm.ogg",
-        "Storm",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/stream.ogg",
-        "Stream",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/summer-night.ogg",
-        "Summer Night",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/train.ogg",
-        "Train",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/waves.ogg",
-        "Waves",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/white-noise.ogg",
-        "White Noise",
-    )?);
-
-    sounds.push(sound::play_from_file(
-        &stream_handle,
-        "./sounds/wind.ogg",
-        "Wind",
-    )?);
+    let sounds = sounds::init(&stream_handle)?;
 
     unsafe {
         SOUND = Some(Arc::new(Mutex::new(sounds)));
@@ -191,21 +123,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // This thread is responsible for adjusting the volume of the sounds that are
     // being played. It works based on messages send from the state object
-    thread::spawn(move || loop {
-        match tx.recv() {
-            Ok((index, volume)) => {
-                let mut sounds = thread_sounds.lock().unwrap();
-                sounds[index].volume = volume;
+    thread::spawn(move || {
+        let mut config = config::load();
 
-                if volume == 0.0 {
-                    sounds[index].sink.pause();
-                } else if sounds[index].sink.is_paused() {
-                    sounds[index].sink.play();
+        loop {
+            match tx.recv() {
+                Ok((index, volume)) => {
+                    let mut sounds = thread_sounds.lock().unwrap();
+                    sounds[index].volume = volume;
+
+                    if volume == 0.0 {
+                        sounds[index].sink.pause();
+                    } else if sounds[index].sink.is_paused() {
+                        sounds[index].sink.play();
+                    }
+
+                    sounds[index].sink.set_volume(volume);
+
+                    let config_id = sounds::path_to_sound_id(&sounds[index].path);
+                    config.sound_volume.insert(config_id.to_string(), volume);
+
+                    drop(sounds);
+
+                    config::save(config.clone());
                 }
-
-                sounds[index].sink.set_volume(volume);
+                Err(_) => {}
             }
-            Err(_) => {}
         }
     });
 
