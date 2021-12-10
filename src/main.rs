@@ -108,8 +108,74 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     sounds.push(sound::play_from_file(
         &stream_handle,
+        "./sounds/city.ogg",
+        "City",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/coffee-shop.ogg",
+        "Coffee Shop",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/fireplace.ogg",
+        "Fireplace",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
         "./sounds/pink-noise.ogg",
         "Pink Noise",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/rain.ogg",
+        "Rain",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/storm.ogg",
+        "Storm",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/stream.ogg",
+        "Stream",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/summer-night.ogg",
+        "Summer Night",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/train.ogg",
+        "Train",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/waves.ogg",
+        "Waves",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/white-noise.ogg",
+        "White Noise",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/wind.ogg",
+        "Wind",
     )?);
 
     unsafe {
