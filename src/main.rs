@@ -1,17 +1,13 @@
 use std::{
-    fmt,
-    fs::File,
-    io::BufReader,
     sync::{
         mpsc::{self, Sender},
         Arc, Mutex,
     },
     thread,
-    time::Duration,
 };
 
 use orbtk::prelude::*;
-use sound::Sound;
+use sound::{loop_sounds, Sound};
 
 mod sound;
 
@@ -64,7 +60,6 @@ impl Template for MainView {
                     let sound_name = bc.get_widget(id).get::<SoundVec>("sounds")[index].clone();
 
                     Stack::new()
-                        .orientation(Orientation::Horizontal)
                         .child(TextBlock::new().text(sound_name).build(bc))
                         .child(
                             Slider::new()
@@ -101,7 +96,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     sounds.push(sound::play_from_file(
         &stream_handle,
-        "./pink-noise.ogg",
+        "./sounds/birds.ogg",
+        "Birds",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/boat.ogg",
+        "Boat",
+    )?);
+
+    sounds.push(sound::play_from_file(
+        &stream_handle,
+        "./sounds/pink-noise.ogg",
         "Pink Noise",
     )?);
 
@@ -111,31 +118,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let thread_sounds = unsafe { SOUND.as_ref().unwrap() };
 
+    // This thread is responsible for infinitely looping the audio that will be
+    // heard by the user. The duration must be set to be shorter than all of the
+    //  sounds that are being played
+    thread::spawn(move || loop_sounds(thread_sounds, 10));
+
+    // This thread is responsible for adjusting the volume of the sounds that are
+    // being played. It works based on messages send from the state object
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(5));
-
-        let mut sounds = thread_sounds.lock().unwrap();
-
-        for sound in sounds.iter_mut() {
-            if sound.sink.len() < 100_000 {
-                let file = BufReader::new(File::open(&sound.path).unwrap());
-                sound.sink.append(rodio::Decoder::new(file).unwrap());
-            }
-
-            sound.sink.set_volume(sound.volume);
-        }
-
         match tx.recv() {
             Ok((index, volume)) => {
+                let mut sounds = thread_sounds.lock().unwrap();
                 sounds[index].volume = volume;
+
+                if volume == 0.0 {
+                    sounds[index].sink.pause();
+                } else if sounds[index].sink.is_paused() {
+                    sounds[index].sink.play();
+                }
+
+                sounds[index].sink.set_volume(volume);
             }
             Err(_) => {}
         }
-
-        drop(sounds);
     });
 
-    let sounds = unsafe { SOUND.as_ref().unwrap() };
+    let sounds = thread_sounds;
 
     Application::new()
         .window(move |ctx| {
@@ -143,6 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let window = Window::new()
                 .title("Carpet")
+                .size(200, 500)
                 .resizeable(true)
                 .child(
                     MainView::new()

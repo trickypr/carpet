@@ -2,6 +2,9 @@ use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
@@ -13,6 +16,29 @@ pub struct Sound {
     pub volume: f32,
 }
 
+#[inline]
+pub fn loop_sounds<'a>(sounds_mutex: &'a Arc<Mutex<Vec<Sound>>>, sleep_time_seconds: u64) {
+    loop {
+        let mut sounds = sounds_mutex.lock().unwrap();
+
+        for sound in sounds.iter_mut() {
+            if sound.sink.len() <= 1 {
+                sound.sink.append(
+                    rodio::Decoder::new(BufReader::new(File::open(sound.path.clone()).unwrap()))
+                        .unwrap(),
+                );
+            }
+
+            sound.sink.set_volume(sound.volume);
+        }
+
+        drop(sounds);
+
+        thread::sleep(Duration::from_secs(sleep_time_seconds));
+    }
+}
+
+#[inline]
 pub fn create_output_stream() -> Result<(OutputStream, OutputStreamHandle), Box<dyn Error>> {
     Ok(OutputStream::try_default()?)
 }
