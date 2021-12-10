@@ -1,5 +1,5 @@
 [package]
-name = "blanket"
+name = "carpet"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 orbtk = { git = "https://github.com/redox-os/orbtk.git", branch = "develop" }
 rodio = "0.14.0"
+lazy_static = "1.4.0"

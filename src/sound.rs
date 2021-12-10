@@ -1,38 +1,43 @@
-use rodio::source::Repeat;
-use rodio::{source::Source, Decoder, OutputStream};
-use rodio::{OutputStreamHandle, PlayError};
+use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 
+static mut CURRENT_SOUND_ID: usize = 0;
+
 pub struct Sound {
-    source: Repeat<Decoder<BufReader<File>>>,
+    pub name: String,
+    pub path: String,
+    pub id: usize,
+    pub sink: Sink,
+    pub volume: f32,
 }
 
-pub fn create_output_stream() -> Result<OutputStreamHandle, Box<dyn Error>> {
-    let (_stream, stream_handle) = OutputStream::try_default()?;
-    Ok(stream_handle)
-}
-
-pub fn new(path: &str) -> Result<Sound, Box<dyn std::error::Error>> {
-    // Load a sound from a file, using a path relative to Cargo.toml
-    let file = BufReader::new(File::open(path)?);
-    // Decode that sound file into a source
-    let source = Decoder::new(file)?.repeat_infinite();
-
-    Ok(Sound { source })
+pub fn create_output_stream() -> Result<(OutputStream, OutputStreamHandle), Box<dyn Error>> {
+    Ok(OutputStream::try_default()?)
 }
 
 pub fn play_from_file(
     stream_handle: &OutputStreamHandle,
     path: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let sound = new(path)?;
-    play(stream_handle, sound)?;
+    name: &str,
+) -> Result<Sound, Box<dyn std::error::Error>> {
+    // Load a sound from a file, using a path relative to Cargo.toml
+    let file = BufReader::new(File::open(path)?);
+    let sink = stream_handle.play_once(file)?;
+    let id = unsafe {
+        let id = CURRENT_SOUND_ID;
+        CURRENT_SOUND_ID += 1;
+        id
+    };
 
-    Ok(())
-}
+    sink.set_volume(0.0);
 
-pub fn play(stream_handle: &OutputStreamHandle, source: Sound) -> Result<(), PlayError> {
-    stream_handle.play_raw(source.source.convert_samples())
+    Ok(Sound {
+        name: name.to_string(),
+        path: path.to_string(),
+        id,
+        sink,
+        volume: 0.0,
+    })
 }
