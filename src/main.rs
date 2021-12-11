@@ -16,8 +16,6 @@ mod sounds;
 static mut RX: Option<Sender<(usize, f32)>> = None;
 static mut SOUND: Option<Arc<Mutex<Vec<Sound>>>> = None;
 
-type SoundVec = Vec<String>;
-
 #[derive(Debug, Default, AsAny)]
 struct MainState {
     change_volume: Vec<(usize, Entity)>,
@@ -49,52 +47,51 @@ impl State for MainState {
 }
 
 widget!(MainView<MainState> {
-    count: usize,
-    sounds: SoundVec
 });
 
 impl Template for MainView {
     fn template(self, id: Entity, ctx: &mut BuildContext) -> Self {
-        self.count(0).sounds(vec![]).child(
-            ScrollViewer::new()
-                .mode(ScrollViewerMode {
-                    horizontal: ScrollMode::Disabled,
-                    vertical: ScrollMode::Auto,
-                })
-                .child(
-                    ItemsWidget::new()
-                        .count(id)
-                        .items_builder(move |bc, index| {
-                            let sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
+        let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
+        let mut sounds = Vec::new();
 
-                            let sound_name =
-                                bc.get_widget(id).get::<SoundVec>("sounds")[index].clone();
+        for sound in available_sounds.iter() {
+            let sound_id = sound.id.clone();
 
-                            let stack = Stack::new()
-                                .child(TextBlock::new().text(sound_name).build(bc))
-                                .child(
-                                    Slider::new()
-                                        .id(format!("sound_{}", index))
-                                        .min(0.0)
-                                        .val(sounds[index].volume)
-                                        .max(1.0)
-                                        .min_width(100)
-                                        .on_changed("val", move |states, widget_id| {
-                                            states
-                                                .get_mut::<MainState>(id)
-                                                .change_volume((index, widget_id));
-                                        })
-                                        .build(bc),
-                                )
-                                .build(bc);
+            sounds.push(
+                Container::new()
+                    .padding(8)
+                    .child(
+                        Stack::new()
+                            .child(TextBlock::new().text(sound.name.clone()).build(ctx))
+                            .child(
+                                Slider::new()
+                                    .id(format!("sound_{}", sound.id.clone()))
+                                    .min(0.0)
+                                    .val(sound.volume.clone())
+                                    .max(1.0)
+                                    .min_width(100)
+                                    .on_changed("val", move |states, widget_id| {
+                                        states
+                                            .get_mut::<MainState>(id)
+                                            .change_volume((sound_id, widget_id));
+                                    })
+                                    .build(ctx),
+                            )
+                            .build(ctx),
+                    )
+                    .build(ctx),
+            );
+        }
 
-                            drop(sounds);
-                            stack
-                        })
-                        .build(ctx),
-                )
-                .build(ctx),
-        )
+        drop(available_sounds);
+
+        let mut stack = Stack::new();
+
+        for sound in sounds {
+            stack = stack.child(sound);
+        }
+
+        self.child(ScrollViewer::new().child(stack.build(ctx)).build(ctx))
     }
 }
 
@@ -152,30 +149,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let sounds = thread_sounds;
-
     Application::new()
         .window(move |ctx| {
-            let sounds = sounds.lock().unwrap();
-
             let window = Window::new()
                 .title("Carpet")
                 .size(200, 500)
                 .resizeable(true)
-                .child(
-                    MainView::new()
-                        .count(sounds.len())
-                        .sounds(
-                            sounds
-                                .iter()
-                                .map(|sound| sound.name.clone())
-                                .collect::<SoundVec>(),
-                        )
-                        .build(ctx),
-                )
+                .child(MainView::new().build(ctx))
                 .build(ctx);
-
-            drop(sounds);
 
             window
         })
