@@ -7,22 +7,24 @@ use std::{
 };
 
 use orbtk::prelude::*;
-use sound::{loop_sounds, Sound};
+use sound::loop_sounds;
+use sounds::SoundCategory;
 
 mod config;
 mod sound;
+mod sound_category;
 mod sounds;
 
-static mut RX: Option<Sender<(usize, f32)>> = None;
-static mut SOUND: Option<Arc<Mutex<Vec<Sound>>>> = None;
+static mut RX: Option<Sender<((usize, usize), f32)>> = None;
+static mut SOUND: Option<Arc<Mutex<Vec<SoundCategory>>>> = None;
 
 #[derive(Debug, Default, AsAny)]
 struct MainState {
-    change_volume: Vec<(usize, Entity)>,
+    change_volume: Vec<((usize, usize), Entity)>,
 }
 
 impl MainState {
-    pub fn change_volume(&mut self, sound: (usize, Entity)) {
+    pub fn change_volume(&mut self, sound: ((usize, usize), Entity)) {
         self.change_volume.push(sound);
     }
 }
@@ -54,49 +56,33 @@ impl Template for MainView {
         let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
         let mut sounds = Vec::new();
 
-        for sound in available_sounds.iter() {
-            let sound_id = sound.id.clone();
-
-            sounds.push(
-                Container::new()
-                    .padding(8)
-                    .child(
-                        Stack::new()
-                            .child(TextBlock::new().text(sound.name.clone()).build(ctx))
-                            .child(
-                                Slider::new()
-                                    .id(format!("sound_{}", sound.id.clone()))
-                                    .min(0.0)
-                                    .val(sound.volume.clone())
-                                    .max(1.0)
-                                    .min_width(100)
-                                    .on_changed("val", move |states, widget_id| {
-                                        states
-                                            .get_mut::<MainState>(id)
-                                            .change_volume((sound_id, widget_id));
-                                    })
-                                    .build(ctx),
-                            )
-                            .build(ctx),
-                    )
-                    .build(ctx),
-            );
+        for (index, category) in available_sounds.iter().enumerate() {
+            sounds.push(sound_category::display(ctx, category, id, index));
         }
 
         drop(available_sounds);
 
-        let mut stack = Stack::new();
+        let mut stack = Stack::new().spacing(16);
 
         for sound in sounds {
             stack = stack.child(sound);
         }
 
-        self.child(ScrollViewer::new().child(stack.build(ctx)).build(ctx))
+        self.child(
+            ScrollViewer::new()
+                .child(
+                    Container::new()
+                        .child(stack.build(ctx))
+                        .padding(16)
+                        .build(ctx),
+                )
+                .build(ctx),
+        )
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (rx, tx) = mpsc::channel::<(usize, f32)>();
+    let (rx, tx) = mpsc::channel::<((usize, usize), f32)>();
 
     unsafe {
         RX = Some(rx);
@@ -126,18 +112,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             match tx.recv() {
                 Ok((index, volume)) => {
-                    let mut sounds = thread_sounds.lock().unwrap();
-                    sounds[index].volume = volume;
+                    let mut categories = thread_sounds.lock().unwrap();
+
+                    let category = &mut categories[index.0];
+                    let sounds = &mut category.sounds;
+
+                    sounds[index.1].volume = volume;
 
                     if volume == 0.0 {
-                        sounds[index].sink.pause();
-                    } else if sounds[index].sink.is_paused() {
-                        sounds[index].sink.play();
+                        sounds[index.1].sink.pause();
+                    } else if sounds[index.1].sink.is_paused() {
+                        sounds[index.1].sink.play();
                     }
 
-                    sounds[index].sink.set_volume(volume);
+                    sounds[index.1].sink.set_volume(volume);
 
-                    let config_id = sounds::path_to_sound_id(&sounds[index].path);
+                    let config_id = sounds::path_to_sound_id(&sounds[index.1].path);
                     config.sound_volume.insert(config_id.to_string(), volume);
 
                     drop(sounds);
