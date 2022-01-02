@@ -69,13 +69,9 @@ impl Template for MainView {
         }
 
         self.child(
-            ScrollViewer::new()
-                .child(
-                    Container::new()
-                        .child(stack.build(ctx))
-                        .padding(32)
-                        .build(ctx),
-                )
+            Container::new()
+                .child(ScrollViewer::new().child(stack.build(ctx)).build(ctx))
+                .padding(32)
                 .build(ctx),
         )
     }
