@@ -11,6 +11,24 @@ use crate::sounds::SoundCategory;
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
+pub struct SoundMetadata {
+    pub name: String,
+    pub path: String,
+    pub id: usize,
+    pub volume: f32,
+}
+
+impl From<&Sound> for SoundMetadata {
+    fn from(sound: &Sound) -> Self {
+        SoundMetadata {
+            name: sound.name.clone(),
+            path: sound.path.clone(),
+            id: sound.id,
+            volume: sound.volume,
+        }
+    }
+}
+
 pub struct Sound {
     pub name: String,
     pub path: String,

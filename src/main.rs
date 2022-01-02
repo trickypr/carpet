@@ -73,7 +73,7 @@ impl Template for MainView {
                 .child(
                     Container::new()
                         .child(stack.build(ctx))
-                        .padding(16)
+                        .padding(32)
                         .build(ctx),
                 )
                 .build(ctx),
@@ -144,7 +144,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let window = Window::new()
                 .title("Carpet")
                 .size(200, 500)
-                .resizeable(true)
+                .resizable(true)
                 .child(MainView::new().build(ctx))
                 .build(ctx);
 

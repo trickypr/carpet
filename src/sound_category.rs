@@ -1,10 +1,13 @@
 use orbtk::prelude::*;
 
-use crate::{sound, MainState, SoundCategory};
+use crate::{
+    sound::{self, SoundMetadata},
+    MainState, SoundCategory,
+};
 
 pub fn sound_display(
     ctx: &mut BuildContext,
-    sound: &sound::Sound,
+    sound: &sound::SoundMetadata,
     parent_id: Entity,
     category_id: usize,
 ) -> Entity {
@@ -35,18 +38,36 @@ pub fn display(
     parent_id: Entity,
     category_id: usize,
 ) -> Entity {
-    let mut stack = Stack::new()
+    let available_sounds = category
+        .sounds
+        .iter()
+        .map(|sound| sound.into())
+        .collect::<Vec<SoundMetadata>>();
+
+    Stack::new()
         .child(
             TextBlock::new()
                 .text(category.name.clone())
                 .style("header")
                 .build(ctx),
         )
-        .spacing(8);
-
-    for sound in category.sounds.iter() {
-        stack = stack.child(sound_display(ctx, sound, parent_id, category_id));
-    }
-
-    stack.build(ctx)
+        .child(
+            ItemsWidget::new()
+                .id(format!("category_{}", category.id.clone()))
+                .count(available_sounds.len())
+                .items_builder(move |ctx, index| {
+                    Container::new()
+                        .child(sound_display(
+                            ctx,
+                            &available_sounds[index],
+                            parent_id,
+                            category_id,
+                        ))
+                        .padding(16)
+                        .build(ctx)
+                })
+                .build(ctx),
+        )
+        .spacing(8)
+        .build(ctx)
 }

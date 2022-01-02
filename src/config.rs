@@ -16,10 +16,10 @@ pub fn get_path() -> PathBuf {
     };
 
     #[cfg(target_os = "windows")]
-    let windows = {};
+    let windows = { unimplemented!() };
 
     #[cfg(target_os = "macos")]
-    let macos = {};
+    let macos = { unimplemented!() };
 
     #[cfg(target_os = "linux")]
     return linux;
