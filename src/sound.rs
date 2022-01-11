@@ -3,11 +3,6 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
-
-use crate::sounds::SoundCategory;
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
