@@ -3,7 +3,10 @@ use std::{collections::HashMap, fs, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+/// The config option for this application. All new options **MUST** be added as
+/// an optional field to avoid broken configs
 pub struct Config {
+    pub is_playing: Option<bool>,
     pub sound_volume: HashMap<String, f32>,
 }
 
@@ -33,6 +36,7 @@ pub fn get_path() -> PathBuf {
 
 pub fn default() -> Config {
     Config {
+        is_playing: Some(true),
         sound_volume: HashMap::new(),
     }
 }

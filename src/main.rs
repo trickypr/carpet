@@ -6,8 +6,9 @@ use std::{
     thread,
 };
 
+use orbtk::prelude::themes::material_icons_font;
 use orbtk::prelude::*;
-use sound::loop_sounds;
+
 use sounds::SoundCategory;
 
 mod config;
@@ -15,40 +16,61 @@ mod sound;
 mod sound_category;
 mod sounds;
 
-static mut RX: Option<Sender<((usize, usize), f32)>> = None;
+static mut RX: Option<Sender<ControlThreadCommand>> = None;
 static mut SOUND: Option<Arc<Mutex<Vec<SoundCategory>>>> = None;
 
 #[derive(Debug, Default, AsAny)]
 struct MainState {
     change_volume: Vec<((usize, usize), Entity)>,
+    playing: bool,
 }
 
 impl MainState {
     pub fn change_volume(&mut self, sound: ((usize, usize), Entity)) {
         self.change_volume.push(sound);
     }
+
+    pub fn toggle_paused(&mut self) {
+        self.playing = !self.playing;
+    }
 }
 
 impl State for MainState {
+    fn init(&mut self, _registry: &mut Registry, ctx: &mut Context) {
+        self.playing = *ctx.widget().get::<bool>("playing");
+    }
+
     fn update(&mut self, _registry: &mut Registry, ctx: &mut Context) {
-        if self.change_volume.len() == 0 {
-            return;
+        if self.change_volume.len() != 0 {
+            let rx = unsafe { RX.as_ref().unwrap() };
+
+            for (song_index, entity) in &self.change_volume {
+                let slider = ctx.get_widget(*entity);
+                let value = Slider::val_clone(&slider);
+
+                rx.send(ControlThreadCommand::ChangeVolume(
+                    *song_index,
+                    value as f32,
+                ))
+                .unwrap();
+            }
+
+            self.change_volume.clear();
         }
 
-        let rx = unsafe { RX.as_ref().unwrap() };
+        if &self.playing != ctx.widget().get::<bool>("playing") {
+            let playing = self.playing;
 
-        for (song_index, entity) in &self.change_volume {
-            let slider = ctx.get_widget(*entity);
-            let value = Slider::val_clone(&slider);
+            let rx = unsafe { RX.as_ref().unwrap() };
+            rx.send(ControlThreadCommand::SetPlaying(playing)).unwrap();
 
-            rx.send((*song_index, value as f32)).unwrap();
+            ctx.widget().set("playing", playing);
         }
-
-        self.change_volume.clear();
     }
 }
 
 widget!(MainView<MainState> {
+    playing: bool
 });
 
 impl Template for MainView {
@@ -62,7 +84,21 @@ impl Template for MainView {
 
         drop(available_sounds);
 
-        let mut stack = Stack::new().spacing(16);
+        let mut stack = Stack::new().spacing(16).child(
+            Stack::new()
+                .orientation(Orientation::Horizontal)
+                .child(
+                    Button::new()
+                        .icon(material_icons_font::MD_PAUSE)
+                        .id("play_pause_button")
+                        .on_click(move |ctx, _position| {
+                            ctx.get_mut::<MainState>(id).toggle_paused();
+                            true
+                        })
+                        .build(ctx),
+                )
+                .build(ctx),
+        );
 
         for sound in sounds {
             stack = stack.child(sound);
@@ -74,20 +110,28 @@ impl Template for MainView {
                 .padding(32)
                 .build(ctx),
         )
+        .playing(true)
     }
 }
 
+pub enum ControlThreadCommand {
+    ChangeVolume((usize, usize), f32),
+    SetPlaying(bool),
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (rx, tx) = mpsc::channel::<((usize, usize), f32)>();
+    let (rx, tx) = mpsc::channel();
 
     unsafe {
         RX = Some(rx);
     }
 
+    // Get the application config
+    let config = config::load();
+
     // Get a output stream handle to the default physical sound device
     let (_stream, stream_handle) = sound::create_output_stream()?;
-
-    let sounds = sounds::init(&stream_handle)?;
+    let sounds = sounds::init(&stream_handle, &config)?;
 
     unsafe {
         SOUND = Some(Arc::new(Mutex::new(sounds)));
@@ -98,37 +142,77 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This thread is responsible for infinitely looping the audio that will be
     // heard by the user. The duration must be set to be shorter than all of the
     //  sounds that are being played
-    thread::spawn(move || loop_sounds(thread_sounds, 10));
+    thread::spawn(move || sounds::looper(thread_sounds, 10));
 
     // This thread is responsible for adjusting the volume of the sounds that are
     // being played. It works based on messages send from the state object
     thread::spawn(move || {
         let mut config = config::load();
+        let mut is_playing = config.is_playing.unwrap_or(true);
 
         loop {
             match tx.recv() {
-                Ok((index, volume)) => {
-                    let mut categories = thread_sounds.lock().unwrap();
+                Ok(command) => {
+                    //(index, volume)
+                    match command {
+                        ControlThreadCommand::ChangeVolume(index, volume) => {
+                            let mut categories = thread_sounds.lock().unwrap();
 
-                    let category = &mut categories[index.0];
-                    let sounds = &mut category.sounds;
+                            let category = &mut categories[index.0];
+                            let sounds = &mut category.sounds;
 
-                    sounds[index.1].volume = volume;
+                            sounds[index.1].volume = volume;
 
-                    if volume == 0.0 {
-                        sounds[index.1].sink.pause();
-                    } else if sounds[index.1].sink.is_paused() {
-                        sounds[index.1].sink.play();
+                            if volume == 0.0 {
+                                sounds[index.1].sink.pause();
+                            } else if sounds[index.1].sink.is_paused() {
+                                if is_playing {
+                                    sounds[index.1].sink.play();
+                                }
+                            }
+
+                            sounds[index.1].sink.set_volume(volume);
+
+                            let config_id = sounds::path_to_sound_id(&sounds[index.1].path);
+                            config.sound_volume.insert(config_id.to_string(), volume);
+
+                            drop(sounds);
+
+                            config::save(config.clone());
+                        }
+                        ControlThreadCommand::SetPlaying(local_is_playing) => {
+                            is_playing = local_is_playing;
+                            config.is_playing = Some(is_playing);
+
+                            if local_is_playing {
+                                let mut categories = thread_sounds.lock().unwrap();
+
+                                for category in categories.iter_mut() {
+                                    for sound in category.sounds.iter_mut() {
+                                        if sound.volume != 0.0 {
+                                            sound.sink.play();
+                                        }
+                                    }
+                                }
+
+                                drop(categories);
+                            } else {
+                                let mut categories = thread_sounds.lock().unwrap();
+
+                                for category in categories.iter_mut() {
+                                    for sound in category.sounds.iter_mut() {
+                                        if sound.volume != 0.0 {
+                                            sound.sink.pause();
+                                        }
+                                    }
+                                }
+
+                                drop(categories);
+                            }
+
+                            config::save(config.clone());
+                        }
                     }
-
-                    sounds[index.1].sink.set_volume(volume);
-
-                    let config_id = sounds::path_to_sound_id(&sounds[index.1].path);
-                    config.sound_volume.insert(config_id.to_string(), volume);
-
-                    drop(sounds);
-
-                    config::save(config.clone());
                 }
                 Err(_) => {}
             }
@@ -141,7 +225,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .title("Carpet")
                 .size(200, 500)
                 .resizable(true)
-                .child(MainView::new().build(ctx))
+                .child(
+                    MainView::new()
+                        .playing(config.is_playing.unwrap_or(true))
+                        .build(ctx),
+                )
                 .build(ctx);
 
             window

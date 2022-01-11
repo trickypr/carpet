@@ -5,8 +5,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+debug = 1
+
 [dependencies]
 orbtk = { git = "https://github.com/trickypr/orbtk.git", branch = "fix_slider" }
+lazy_static = "1.4.0"
 rodio = "0.14.0"
 
 # Config

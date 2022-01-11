@@ -2,11 +2,19 @@
 //! sounds in the sound folder and setting their settings to be correct by
 //! the last config.
 
-use std::{error::Error, path::Path};
+use std::{
+    error::Error,
+    fs::File,
+    io::BufReader,
+    path::Path,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use rodio::OutputStreamHandle;
 
-use crate::{config, sound};
+use crate::{config::Config, sound};
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
@@ -32,7 +40,10 @@ fn push(name: &str, sounds: &mut Vec<SoundCategory>, sound: Vec<sound::Sound>) {
     sound::reset_ids();
 }
 
-pub fn init(stream_handle: &OutputStreamHandle) -> Result<Vec<SoundCategory>, Box<dyn Error>> {
+pub fn init(
+    stream_handle: &OutputStreamHandle,
+    config: &Config,
+) -> Result<Vec<SoundCategory>, Box<dyn Error>> {
     let mut sounds = Vec::new();
 
     let sound = |name: &str, audio_name: &str| -> Result<sound::Sound, Box<dyn Error>> {
@@ -85,9 +96,6 @@ pub fn init(stream_handle: &OutputStreamHandle) -> Result<Vec<SoundCategory>, Bo
         ],
     );
 
-    // Correctly set the volume of all the sounds
-    let config = config::load();
-
     for category in sounds.iter_mut() {
         for sound in category.sounds.iter_mut() {
             let sound_config_id = path_to_sound_id(&sound.path);
@@ -103,4 +111,30 @@ pub fn init(stream_handle: &OutputStreamHandle) -> Result<Vec<SoundCategory>, Bo
 
 pub fn path_to_sound_id<'a>(path: &'a str) -> &'a str {
     Path::new(path).file_stem().unwrap().to_str().unwrap()
+}
+
+#[inline]
+pub fn looper<'a>(sounds_mutex: &'a Arc<Mutex<Vec<SoundCategory>>>, sleep_time_seconds: u64) {
+    loop {
+        let mut sounds = sounds_mutex.lock().unwrap();
+
+        for category in sounds.iter_mut() {
+            for sound in category.sounds.iter_mut() {
+                if sound.sink.len() <= 1 {
+                    sound.sink.append(
+                        rodio::Decoder::new(BufReader::new(
+                            File::open(sound.path.clone()).unwrap(),
+                        ))
+                        .unwrap(),
+                    );
+                }
+
+                sound.sink.set_volume(sound.volume);
+            }
+        }
+
+        drop(sounds);
+
+        thread::sleep(Duration::from_secs(sleep_time_seconds));
+    }
 }

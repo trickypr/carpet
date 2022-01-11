@@ -49,32 +49,6 @@ impl Debug for Sound {
 }
 
 #[inline]
-pub fn loop_sounds<'a>(sounds_mutex: &'a Arc<Mutex<Vec<SoundCategory>>>, sleep_time_seconds: u64) {
-    loop {
-        let mut sounds = sounds_mutex.lock().unwrap();
-
-        for category in sounds.iter_mut() {
-            for sound in category.sounds.iter_mut() {
-                if sound.sink.len() <= 1 {
-                    sound.sink.append(
-                        rodio::Decoder::new(BufReader::new(
-                            File::open(sound.path.clone()).unwrap(),
-                        ))
-                        .unwrap(),
-                    );
-                }
-
-                sound.sink.set_volume(sound.volume);
-            }
-        }
-
-        drop(sounds);
-
-        thread::sleep(Duration::from_secs(sleep_time_seconds));
-    }
-}
-
-#[inline]
 pub fn create_output_stream() -> Result<(OutputStream, OutputStreamHandle), Box<dyn Error>> {
     Ok(OutputStream::try_default()?)
 }
