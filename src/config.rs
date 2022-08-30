@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs::{self, create_dir_all},
+    path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +26,16 @@ pub fn get_path() -> PathBuf {
     let windows = { unimplemented!() };
 
     #[cfg(target_os = "macos")]
-    let macos = { unimplemented!() };
+    let macos = {
+        let home_dir = home::home_dir().unwrap();
+        let local_config_dir = home_dir.join("Library/Application Support");
+
+        if !local_config_dir.exists() {
+            create_dir_all(local_config_dir.clone()).unwrap();
+        }
+
+        local_config_dir.join("config.json")
+    };
 
     #[cfg(target_os = "linux")]
     return linux;
