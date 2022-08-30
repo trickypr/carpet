@@ -14,6 +14,7 @@ pub fn Slider<'a>(cx: Scope<'a, SliderProps>) -> Element {
     let val = cx.props.val;
 
     let width = (val - min) / (max - min) * 100.0;
+    let width = width.round() as u32;
 
     let onscroll = |ev: UiEvent<MouseData>| println!("Scroll!");
 
