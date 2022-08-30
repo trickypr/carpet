@@ -6,11 +6,16 @@ use std::{
     thread,
 };
 
-use orbtk::prelude::themes::material_icons_font;
-use orbtk::prelude::*;
+// use orbtk::prelude::themes::material_icons_font;
+// use orbtk::prelude::*;
+
+use dioxus::prelude::*;
+use elements_namespace as dioxus_elements;
 
 use sounds::SoundCategory;
+use trev::launch;
 
+mod components;
 mod config;
 mod sound;
 mod sound_category;
@@ -19,100 +24,123 @@ mod sounds;
 static mut RX: Option<Sender<ControlThreadCommand>> = None;
 static mut SOUND: Option<Arc<Mutex<Vec<SoundCategory>>>> = None;
 
-#[derive(Debug, Default, AsAny)]
-struct MainState {
-    change_volume: Vec<((usize, usize), Entity)>,
-    playing: bool,
-}
+fn app(cx: Scope) -> Element {
+    let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
 
-impl MainState {
-    pub fn change_volume(&mut self, sound: ((usize, usize), Entity)) {
-        self.change_volume.push(sound);
-    }
+    let sounds_els = available_sounds
+        .iter()
+        .map(|category| category.into())
+        .map(|category| rsx!(sound_category::AllSounds { category: category }));
 
-    pub fn toggle_paused(&mut self) {
-        self.playing = !self.playing;
-    }
-}
-
-impl State for MainState {
-    fn init(&mut self, _registry: &mut Registry, ctx: &mut Context) {
-        self.playing = *ctx.widget().get::<bool>("playing");
-    }
-
-    fn update(&mut self, _registry: &mut Registry, ctx: &mut Context) {
-        if self.change_volume.len() != 0 {
-            let rx = unsafe { RX.as_ref().unwrap() };
-
-            for (song_index, entity) in &self.change_volume {
-                let slider = ctx.get_widget(*entity);
-                let value = Slider::val_clone(&slider);
-
-                rx.send(ControlThreadCommand::ChangeVolume(
-                    *song_index,
-                    value as f32,
-                ))
-                .unwrap();
+    cx.render(rsx! {
+        container {
+            height: "100%",
+            width: "100%",
+            padding: "60",
+            background: "black",
+            text {
+                "Hello, world!"
             }
 
-            self.change_volume.clear();
+            sounds_els
         }
-
-        if &self.playing != ctx.widget().get::<bool>("playing") {
-            let playing = self.playing;
-
-            let rx = unsafe { RX.as_ref().unwrap() };
-            rx.send(ControlThreadCommand::SetPlaying(playing)).unwrap();
-
-            ctx.widget().set("playing", playing);
-        }
-    }
+    })
 }
 
-widget!(MainView<MainState> {
-    playing: bool
-});
+// #[derive(Debug, Default, AsAny)]
+// struct MainState {
+//     change_volume: Vec<((usize, usize), Entity)>,
+//     playing: bool,
+// }
 
-impl Template for MainView {
-    fn template(self, id: Entity, ctx: &mut BuildContext) -> Self {
-        let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
-        let mut sounds = Vec::new();
+// impl MainState {
+//     pub fn change_volume(&mut self, sound: ((usize, usize), Entity)) {
+//         self.change_volume.push(sound);
+//     }
 
-        for (index, category) in available_sounds.iter().enumerate() {
-            sounds.push(sound_category::display(ctx, category, id, index));
-        }
+//     pub fn toggle_paused(&mut self) {
+//         self.playing = !self.playing;
+//     }
+// }
 
-        drop(available_sounds);
+// impl State for MainState {
+//     fn init(&mut self, _registry: &mut Registry, ctx: &mut Context) {
+//         self.playing = *ctx.widget().get::<bool>("playing");
+//     }
 
-        let mut stack = Stack::new().spacing(16).child(
-            Stack::new()
-                .orientation(Orientation::Horizontal)
-                .child(
-                    Button::new()
-                        .icon(material_icons_font::MD_PAUSE)
-                        .id("play_pause_button")
-                        .on_click(move |ctx, _position| {
-                            ctx.get_mut::<MainState>(id).toggle_paused();
-                            true
-                        })
-                        .build(ctx),
-                )
-                .build(ctx),
-        );
+//     fn update(&mut self, _registry: &mut Registry, ctx: &mut Context) {
+//         if self.change_volume.len() != 0 {
+//             let rx = unsafe { RX.as_ref().unwrap() };
 
-        for sound in sounds {
-            stack = stack.child(sound);
-        }
+//             for (song_index, entity) in &self.change_volume {
+//                 let slider = ctx.get_widget(*entity);
+//                 let value = Slider::val_clone(&slider);
 
-        self.child(
-            Container::new()
-                .child(ScrollViewer::new().child(stack.build(ctx)).build(ctx))
-                .padding(32)
-                .build(ctx),
-        )
-        .playing(true)
-    }
-}
+//                 rx.send(ControlThreadCommand::ChangeVolume(
+//                     *song_index,
+//                     value as f32,
+//                 ))
+//                 .unwrap();
+//             }
+
+//             self.change_volume.clear();
+//         }
+
+//         if &self.playing != ctx.widget().get::<bool>("playing") {
+//             let playing = self.playing;
+
+//             let rx = unsafe { RX.as_ref().unwrap() };
+//             rx.send(ControlThreadCommand::SetPlaying(playing)).unwrap();
+
+//             ctx.widget().set("playing", playing);
+//         }
+//     }
+// }
+
+// widget!(MainView<MainState> {
+//     playing: bool
+// });
+
+// impl Template for MainView {
+//     fn template(self, id: Entity, ctx: &mut BuildContext) -> Self {
+//         let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
+//         let mut sounds = Vec::new();
+
+//         for (index, category) in available_sounds.iter().enumerate() {
+//             sounds.push(sound_category::display(ctx, category, id, index));
+//         }
+
+//         drop(available_sounds);
+
+//         let mut stack = Stack::new().spacing(16).child(
+//             Stack::new()
+//                 .orientation(Orientation::Horizontal)
+//                 .child(
+//                     Button::new()
+//                         .icon(material_icons_font::MD_PAUSE)
+//                         .id("play_pause_button")
+//                         .on_click(move |ctx, _position| {
+//                             ctx.get_mut::<MainState>(id).toggle_paused();
+//                             true
+//                         })
+//                         .build(ctx),
+//                 )
+//                 .build(ctx),
+//         );
+
+//         for sound in sounds {
+//             stack = stack.child(sound);
+//         }
+
+//         self.child(
+//             Container::new()
+//                 .child(ScrollViewer::new().child(stack.build(ctx)).build(ctx))
+//                 .padding(32)
+//                 .build(ctx),
+//         )
+//         .playing(true)
+//     }
+// }
 
 pub enum ControlThreadCommand {
     ChangeVolume((usize, usize), f32),
@@ -219,22 +247,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    Application::new()
-        .window(move |ctx| {
-            let window = Window::new()
-                .title("Carpet")
-                .size(200, 500)
-                .resizable(true)
-                .child(
-                    MainView::new()
-                        .playing(config.is_playing.unwrap_or(true))
-                        .build(ctx),
-                )
-                .build(ctx);
-
-            window
-        })
-        .run();
+    launch(app);
 
     Ok(())
 }

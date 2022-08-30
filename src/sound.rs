@@ -6,11 +6,18 @@ use std::io::BufReader;
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
+#[derive(Clone)]
 pub struct SoundMetadata {
     pub name: String,
     pub path: String,
     pub id: usize,
     pub volume: f32,
+}
+
+impl PartialEq for SoundMetadata {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 impl From<&Sound> for SoundMetadata {

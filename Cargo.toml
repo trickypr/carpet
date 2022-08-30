@@ -9,9 +9,16 @@ edition = "2021"
 debug = 1
 
 [dependencies]
-orbtk = { git = "https://github.com/trickypr/orbtk.git", branch = "fix_slider" }
 lazy_static = "1.4.0"
-rodio = "0.14.0"
+rodio = "0.15.0"
+
+# New UI dependancies
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", features = [
+    "macro",
+    "hooks",
+] }
+elements-namespace = { git = "https://github.com/marc2332/dioxus-skia" }
+trev = { git = "https://github.com/marc2332/dioxus-skia" }
 
 # Config
 serde = { version = "1.0", features = ["derive"] }

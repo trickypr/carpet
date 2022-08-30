@@ -14,7 +14,10 @@ use std::{
 
 use rodio::OutputStreamHandle;
 
-use crate::{config::Config, sound};
+use crate::{
+    config::Config,
+    sound::{self, Sound},
+};
 
 static mut CURRENT_SOUND_ID: usize = 0;
 
@@ -23,6 +26,34 @@ pub struct SoundCategory {
     pub name: String,
     pub id: usize,
     pub sounds: Vec<sound::Sound>,
+}
+
+pub struct SoundCategoryLite {
+    pub name: String,
+    pub id: usize,
+    pub sounds: Vec<sound::SoundMetadata>,
+}
+
+impl From<&SoundCategory> for SoundCategoryLite {
+    fn from(category: &SoundCategory) -> Self {
+        SoundCategoryLite {
+            name: category.name.clone(),
+            id: category.id,
+            sounds: category.sounds.iter().map(|sound| sound.into()).collect(),
+        }
+    }
+}
+
+impl PartialEq for SoundCategoryLite {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialEq for SoundCategory {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 fn new(name: &str, sounds: Vec<sound::Sound>) -> SoundCategory {

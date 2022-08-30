@@ -1,73 +1,135 @@
-use orbtk::prelude::*;
+// use orbtk::prelude::*;
+
+use dioxus::prelude::*;
+use elements_namespace as dioxus_elements;
 
 use crate::{
+    components::Slider,
     sound::{self, SoundMetadata},
-    MainState, SoundCategory,
+    sounds::SoundCategoryLite,
+    // MainState,
+    SoundCategory,
 };
 
-pub fn sound_display(
-    ctx: &mut BuildContext,
-    sound: &sound::SoundMetadata,
-    parent_id: Entity,
+#[derive(PartialEq, Props)]
+struct SoundProps {
+    sound: SoundMetadata,
     category_id: usize,
-) -> Entity {
-    let sound_id = sound.id.clone();
-
-    Stack::new()
-        .child(TextBlock::new().text(sound.name.clone()).build(ctx))
-        .child(
-            Slider::new()
-                .id(format!("sound_{}", sound.id.clone()))
-                .min(0.0)
-                .val(sound.volume.clone())
-                .max(1.0)
-                .min_width(100)
-                .on_changed("val", move |states, widget_id| {
-                    states
-                        .get_mut::<MainState>(parent_id)
-                        .change_volume(((category_id, sound_id), widget_id));
-                })
-                .build(ctx),
-        )
-        .build(ctx)
 }
 
-pub fn display(
-    ctx: &mut BuildContext,
-    category: &SoundCategory,
-    parent_id: Entity,
-    category_id: usize,
-) -> Entity {
-    let available_sounds = category
-        .sounds
+fn Sound<'a>(cx: Scope<'a, SoundProps>) -> Element {
+    let sound = &cx.props.sound;
+    let category_id = cx.props.category_id;
+
+    let volume = cx.props.sound.volume;
+
+    cx.render(rsx! {
+        view {
+            text {
+                "{&sound.name}"
+            },
+            Slider {
+                min: 0.0,
+                max: 1.0,
+                val: volume,
+            },
+        },
+    })
+}
+
+#[derive(PartialEq, Props)]
+pub struct AllSoundsProps {
+    category: SoundCategoryLite,
+}
+
+pub fn AllSounds<'a>(cx: Scope<'a, AllSoundsProps>) -> Element {
+    let category = &cx.props.category;
+
+    let available_sounds = &category.sounds;
+
+    let sounds_els = available_sounds
         .iter()
-        .map(|sound| sound.into())
-        .collect::<Vec<SoundMetadata>>();
+        .map(|sound| sound.clone())
+        .map(|sound| {
+            rsx!(Sound {
+                sound: sound,
+                category_id: category.id,
+            })
+        });
 
-    Stack::new()
-        .child(
-            TextBlock::new()
-                .text(category.name.clone())
-                .style("header")
-                .build(ctx),
-        )
-        .child(
-            ItemsWidget::new()
-                .id(format!("category_{}", category.id.clone()))
-                .count(available_sounds.len())
-                .items_builder(move |ctx, index| {
-                    Container::new()
-                        .child(sound_display(
-                            ctx,
-                            &available_sounds[index],
-                            parent_id,
-                            category_id,
-                        ))
-                        .padding(16)
-                        .build(ctx)
-                })
-                .build(ctx),
-        )
-        .spacing(8)
-        .build(ctx)
+    cx.render(rsx! {
+        view {
+            text {
+                "{&category.name}"
+            },
+            sounds_els
+        }
+    })
 }
+
+// pub fn sound_display(
+//     ctx: &mut BuildContext,
+//     sound: &sound::SoundMetadata,
+//     parent_id: Entity,
+//     category_id: usize,
+// ) -> Entity {
+//     let sound_id = sound.id.clone();
+
+//     Stack::new()
+//         .child(TextBlock::new().text(sound.name.clone()).build(ctx))
+//         .child(
+//             Slider::new()
+//                 .id(format!("sound_{}", sound.id.clone()))
+//                 .min(0.0)
+//                 .val(sound.volume.clone())
+//                 .max(1.0)
+//                 .min_width(100)
+//                 .on_changed("val", move |states, widget_id| {
+//                     states
+//                         .get_mut::<MainState>(parent_id)
+//                         .change_volume(((category_id, sound_id), widget_id));
+//                 })
+//                 .build(ctx),
+//         )
+//         .build(ctx)
+// }
+
+// pub fn display(
+//     ctx: &mut BuildContext,
+//     category: &SoundCategory,
+//     parent_id: Entity,
+//     category_id: usize,
+// ) -> Entity {
+//     let available_sounds = category
+//         .sounds
+//         .iter()
+//         .map(|sound| sound.into())
+//         .collect::<Vec<SoundMetadata>>();
+
+//     Stack::new()
+//         .child(
+//             TextBlock::new()
+//                 .text(category.name.clone())
+//                 .style("header")
+//                 .build(ctx),
+//         )
+//         .child(
+//             ItemsWidget::new()
+//                 .id(format!("category_{}", category.id.clone()))
+//                 .count(available_sounds.len())
+//                 .items_builder(move |ctx, index| {
+//                     Container::new()
+//                         .child(sound_display(
+//                             ctx,
+//                             &available_sounds[index],
+//                             parent_id,
+//                             category_id,
+//                         ))
+//                         .padding(16)
+//                         .build(ctx)
+//                 })
+//                 .build(ctx),
+//         )
+//         .spacing(8)
+//         .build(ctx)
+// }
