@@ -2,170 +2,112 @@
 //! sounds in the sound folder and setting their settings to be correct by
 //! the last config.
 
-use std::{
-    error::Error,
-    fs::File,
-    io::BufReader,
-    path::Path,
-    sync::{Arc, Mutex},
-    thread,
-    time::Duration,
-};
+use std::{fmt::Display, fs::File, io::BufReader};
 
-use rodio::OutputStreamHandle;
+use rodio::{OutputStream, OutputStreamHandle, Sink};
 
-use crate::{
-    config::Config,
-    sound::{self, Sound},
-};
+mod control;
+mod looper;
+mod register;
 
-static mut CURRENT_SOUND_ID: usize = 0;
+pub use control::control;
+pub use looper::looper;
 
-#[derive(Debug, Default)]
-pub struct SoundCategory {
-    pub name: String,
-    pub id: usize,
-    pub sounds: Vec<sound::Sound>,
+#[derive(Copy, Clone)]
+pub enum Category {
+    Water,
+    Nature,
+    Humans,
+    Artificial,
+    None,
 }
 
-pub struct SoundCategoryLite {
-    pub name: String,
-    pub id: usize,
-    pub sounds: Vec<sound::SoundMetadata>,
-}
-
-impl From<&SoundCategory> for SoundCategoryLite {
-    fn from(category: &SoundCategory) -> Self {
-        SoundCategoryLite {
-            name: category.name.clone(),
-            id: category.id,
-            sounds: category.sounds.iter().map(|sound| sound.into()).collect(),
+impl Display for Category {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Category::Water => write!(formatter, "Water"),
+            Category::Nature => write!(formatter, "Nature"),
+            Category::Humans => write!(formatter, "Humans"),
+            Category::Artificial => write!(formatter, "Artificial"),
+            Category::None => write!(formatter, "None"),
         }
     }
 }
 
-impl PartialEq for SoundCategoryLite {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
+pub struct Holder {
+    pub is_playing: bool,
+
+    pub stream: OutputStream,
+    pub stream_handle: OutputStreamHandle,
+
+    pub current_sound_id: usize,
+    pub sounds: Vec<Sound>,
 }
 
-impl PartialEq for SoundCategory {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
+impl Holder {
+    pub fn new() -> Self {
+        let (stream, stream_handle) = OutputStream::try_default().unwrap();
 
-fn new(name: &str, sounds: Vec<sound::Sound>) -> SoundCategory {
-    unsafe { CURRENT_SOUND_ID += 1 };
+        let mut new = Self {
+            is_playing: true,
 
-    SoundCategory {
-        name: name.to_string(),
-        id: unsafe { CURRENT_SOUND_ID },
-        sounds,
-    }
-}
-
-fn push(name: &str, sounds: &mut Vec<SoundCategory>, sound: Vec<sound::Sound>) {
-    sounds.push(new(name, sound));
-    sound::reset_ids();
-}
-
-pub fn init(
-    stream_handle: &OutputStreamHandle,
-    config: &Config,
-) -> Result<Vec<SoundCategory>, Box<dyn Error>> {
-    let mut sounds = Vec::new();
-
-    let sound = |name: &str, audio_name: &str| -> Result<sound::Sound, Box<dyn Error>> {
-        sound::play_from_file(
+            stream,
             stream_handle,
-            &format!("./sounds/{}.ogg", audio_name),
-            name,
-        )
-    };
 
-    push(
-        "Water",
-        &mut sounds,
-        vec![
-            sound("Rain", "rain")?,
-            sound("Thunder", "storm")?,
-            sound("Stream", "stream")?,
-            sound("Waves", "waves")?,
-            sound("Boat", "boat")?,
-        ],
-    );
+            current_sound_id: 0,
+            sounds: vec![],
+        };
 
-    push(
-        "Nature",
-        &mut sounds,
-        vec![
-            sound("Birds", "birds")?,
-            sound("Wind", "wind")?,
-            sound("Summer Night", "summer-night")?,
-        ],
-    );
+        new.register_sounds();
 
-    push(
-        "Humans",
-        &mut sounds,
-        vec![
-            sound("City", "city")?,
-            sound("Coffee Shop", "coffee-shop")?,
-            sound("Fireplace", "fireplace")?,
-            sound("Train", "train")?,
-        ],
-    );
-
-    push(
-        "Artificial",
-        &mut sounds,
-        vec![
-            sound("Pink Noise", "pink-noise")?,
-            sound("White Noise", "white-noise")?,
-        ],
-    );
-
-    for category in sounds.iter_mut() {
-        for sound in category.sounds.iter_mut() {
-            let sound_config_id = path_to_sound_id(&sound.path);
-
-            if config.sound_volume.contains_key(sound_config_id) {
-                sound.volume = *config.sound_volume.get(sound_config_id).unwrap();
-            }
-        }
+        new
     }
 
-    Ok(sounds)
+    pub fn get_sound_mut(&mut self, id: usize) -> Option<&mut Sound> {
+        self.sounds.iter_mut().find(|sound| sound.id == id)
+    }
+
+    pub fn get_new_sound_index(&mut self) -> usize {
+        let index = self.current_sound_id;
+        self.current_sound_id += 1;
+        index
+    }
 }
 
-pub fn path_to_sound_id<'a>(path: &'a str) -> &'a str {
-    Path::new(path).file_stem().unwrap().to_str().unwrap()
+pub struct Sound {
+    pub name: String,
+    pub path: String,
+    pub id: usize,
+    pub sink: Sink,
+    pub volume: f32,
+    pub category: Category,
 }
 
-#[inline]
-pub fn looper<'a>(sounds_mutex: &'a Arc<Mutex<Vec<SoundCategory>>>, sleep_time_seconds: u64) {
-    loop {
-        let mut sounds = sounds_mutex.lock().unwrap();
+impl Sound {
+    pub fn get_buffer(&self) -> BufReader<File> {
+        BufReader::new(File::open(self.path.clone()).unwrap())
+    }
 
-        for category in sounds.iter_mut() {
-            for sound in category.sounds.iter_mut() {
-                if sound.sink.len() <= 1 {
-                    sound.sink.append(
-                        rodio::Decoder::new(BufReader::new(
-                            File::open(sound.path.clone()).unwrap(),
-                        ))
-                        .unwrap(),
-                    );
-                }
+    pub fn new(
+        holder: &mut Holder,
+        category: Category,
+        name: &str,
+        file_path: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let file = BufReader::new(File::open(file_path)?);
+        let sink = holder.stream_handle.play_once(file)?;
+        let id = holder.get_new_sound_index();
 
-                sound.sink.set_volume(sound.volume);
-            }
-        }
+        // TODO: Reset these to zero
+        sink.set_volume(0.0);
 
-        drop(sounds);
-
-        thread::sleep(Duration::from_secs(sleep_time_seconds));
+        Ok(Sound {
+            name: name.to_string(),
+            path: file_path.to_string(),
+            id,
+            sink,
+            volume: 0.0,
+            category,
+        })
     }
 }

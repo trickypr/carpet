@@ -14,19 +14,24 @@ pub struct Config {
     pub sound_volume: HashMap<String, f32>,
 }
 
-pub fn get_path() -> PathBuf {
-    #[cfg(target_os = "linux")]
-    let linux = {
-        let directory = xdg::BaseDirectories::with_prefix("carpet").unwrap();
-        let config_path = directory.place_config_file("config.json").unwrap();
-        config_path
-    };
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            is_playing: Some(true),
+            sound_volume: HashMap::new(),
+        }
+    }
+}
 
-    #[cfg(target_os = "windows")]
-    let windows = { unimplemented!() };
+impl Config {
+    #[cfg(target_os = "linux")]
+    fn get_path() -> PathBuf {
+        let directory = xdg::BaseDirectories::with_prefix("carpet").unwrap();
+        directory.place_config_file("config.json").unwrap()
+    }
 
     #[cfg(target_os = "macos")]
-    let macos = {
+    fn get_path() -> PathBuf {
         let home_dir = home::home_dir().unwrap();
         let local_config_dir = home_dir.join("Library/Application Support");
 
@@ -35,36 +40,25 @@ pub fn get_path() -> PathBuf {
         }
 
         local_config_dir.join("config.json")
-    };
-
-    #[cfg(target_os = "linux")]
-    return linux;
+    }
 
     #[cfg(target_os = "windows")]
-    return windows;
-
-    #[cfg(target_os = "macos")]
-    return macos;
-}
-
-pub fn default() -> Config {
-    Config {
-        is_playing: Some(true),
-        sound_volume: HashMap::new(),
+    fn get_path() -> PathBuf {
+        unimplemented!()
     }
-}
 
-pub fn load() -> Config {
-    let config_path = get_path();
+    pub fn load() -> Self {
+        let config_path = Self::get_path();
 
-    if config_path.exists() {
-        serde_json::from_str(&fs::read_to_string(config_path).unwrap()).unwrap()
-    } else {
-        default()
+        if config_path.exists() {
+            serde_json::from_str(&fs::read_to_string(config_path).unwrap()).unwrap()
+        } else {
+            Self::default()
+        }
     }
-}
 
-pub fn save(config: Config) {
-    let config_path = get_path();
-    fs::write(config_path, serde_json::to_string(&config).unwrap()).unwrap();
+    pub fn save(&self) {
+        let config_path = Self::get_path();
+        fs::write(config_path, serde_json::to_string(self).unwrap()).unwrap();
+    }
 }

@@ -36,3 +36,8 @@ home = "0.5"
 # Linux only rust dependancies:
 [target.'cfg(target_os = "linux")'.dependencies]
 xdg = "2.4"
+
+# Rodio or one of its dependancies will not play sound unless it is built in
+# release mode.
+[profile.dev.package."*"]
+opt-level = 3
