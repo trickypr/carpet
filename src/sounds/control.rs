@@ -1,12 +1,6 @@
-use std::sync::{mpsc::Receiver, MutexGuard};
+use std::sync::mpsc::Receiver;
 
-use crate::{config::Config, ControlThreadCommand, SOUND};
-
-use super::Holder;
-
-fn get_holder<'a>() -> MutexGuard<'a, Holder> {
-    unsafe { SOUND.as_ref().unwrap().lock().unwrap() }
-}
+use crate::{config::Config, get_holder, ControlThreadCommand};
 
 fn sync_config(config: &Config) {
     let mut holder = get_holder();

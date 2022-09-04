@@ -2,24 +2,37 @@
 //! sounds in the sound folder and setting their settings to be correct by
 //! the last config.
 
-use std::{fmt::Display, fs::File, io::BufReader};
+use std::fmt::Display;
 
-use rodio::{OutputStream, OutputStreamHandle, Sink};
+use rodio::{OutputStream, OutputStreamHandle};
 
 mod control;
 mod looper;
 mod register;
+mod sound;
 
 pub use control::control;
 pub use looper::looper;
+pub use sound::{Sound, SoundMetadata};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Category {
     Water,
     Nature,
     Humans,
     Artificial,
     None,
+}
+
+impl Category {
+    pub const fn get_all() -> [Category; 4] {
+        [
+            Category::Water,
+            Category::Nature,
+            Category::Humans,
+            Category::Artificial,
+        ]
+    }
 }
 
 impl Display for Category {
@@ -71,43 +84,5 @@ impl Holder {
         let index = self.current_sound_id;
         self.current_sound_id += 1;
         index
-    }
-}
-
-pub struct Sound {
-    pub name: String,
-    pub path: String,
-    pub id: usize,
-    pub sink: Sink,
-    pub volume: f32,
-    pub category: Category,
-}
-
-impl Sound {
-    pub fn get_buffer(&self) -> BufReader<File> {
-        BufReader::new(File::open(self.path.clone()).unwrap())
-    }
-
-    pub fn new(
-        holder: &mut Holder,
-        category: Category,
-        name: &str,
-        file_path: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let file = BufReader::new(File::open(file_path)?);
-        let sink = holder.stream_handle.play_once(file)?;
-        let id = holder.get_new_sound_index();
-
-        // TODO: Reset these to zero
-        sink.set_volume(0.0);
-
-        Ok(Sound {
-            name: name.to_string(),
-            path: file_path.to_string(),
-            id,
-            sink,
-            volume: 0.0,
-            category,
-        })
     }
 }
