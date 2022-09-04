@@ -79,7 +79,7 @@ pub fn init(
 
     let sound = |name: &str, audio_name: &str| -> Result<sound::Sound, Box<dyn Error>> {
         sound::play_from_file(
-            &stream_handle,
+            stream_handle,
             &format!("./sounds/{}.ogg", audio_name),
             name,
         )
@@ -132,7 +132,7 @@ pub fn init(
             let sound_config_id = path_to_sound_id(&sound.path);
 
             if config.sound_volume.contains_key(sound_config_id) {
-                sound.volume = config.sound_volume.get(sound_config_id).unwrap().clone();
+                sound.volume = *config.sound_volume.get(sound_config_id).unwrap();
             }
         }
     }

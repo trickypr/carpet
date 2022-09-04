@@ -8,6 +8,10 @@ edition = "2021"
 [profile.release]
 debug = 1
 
+[features]
+x11 = ["trev/x11"]
+wireframe = ["trev/wireframe"]
+
 [dependencies]
 lazy_static = "1.4.0"
 rodio = "0.15.0"
@@ -19,6 +23,7 @@ dioxus = { git = "https://github.com/DioxusLabs/dioxus", features = [
 ] }
 elements-namespace = { git = "https://github.com/marc2332/dioxus-skia" }
 trev = { git = "https://github.com/marc2332/dioxus-skia" }
+components = { git = "https://github.com/marc2332/dioxus-skia" }
 
 # Config
 serde = { version = "1.0", features = ["derive"] }
