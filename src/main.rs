@@ -6,11 +6,10 @@ use std::{
     thread,
 };
 
+use freya::launch;
 use frontend::app;
 use sounds::Holder;
-use trev::launch;
 
-mod components_int;
 mod config;
 mod frontend;
 mod sounds;
@@ -19,32 +18,6 @@ type SoundHolderMutex<'a> = &'a Arc<Mutex<sounds::Holder>>;
 
 pub static mut RX: Option<Sender<ControlThreadCommand>> = None;
 pub static mut SOUND: Option<Arc<Mutex<sounds::Holder>>> = None;
-
-// fn app(cx: Scope) -> Element {
-//     let available_sounds = unsafe { SOUND.as_ref().unwrap().lock().unwrap() };
-
-//     // let sounds_els = available_sounds
-//     //     .iter()
-//     //     .map(|category| category.into())
-//     //     .enumerate()
-//     //     .map(|(i, category)| {
-//     //         rsx!(sound_category::AllSounds {
-//     //             category: category,
-//     //             category_index: i
-//     //         })
-//     //     });
-
-//     cx.render(rsx! {
-//         view {
-//             height: "100%",
-//             width: "100%",
-//             padding: "60",
-//             background: "black",
-
-//             // sounds_els
-//         }
-//     })
-// }
 
 pub fn get_holder<'a>() -> MutexGuard<'a, Holder> {
     unsafe { SOUND.as_ref().unwrap().lock().unwrap() }

@@ -23,12 +23,13 @@ pub fn category(cx: Scope<CategoryProps>) -> Element {
         });
 
     cx.render(rsx! {
-        view {
-            height: "auto",
+        container {
             width: "100%",
-            padding: "60",
-            background: "black",
-            text {
+            padding: "32",
+
+            label {
+                font_size: "30",
+                height: "30",
                 "{&category}"
             },
             category_sounds

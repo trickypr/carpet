@@ -7,28 +7,30 @@ pub struct SoundProps {
     sound: SoundMetadata,
 }
 
+#[allow(non_snake_case)]
 pub fn Sound(cx: Scope<SoundProps>) -> Element {
     let sound = &cx.props.sound;
 
-    let volume_change = move |vol| {
+    let volume_change = move |vol: f64| {
         let rx = unsafe { RX.as_ref().unwrap() };
-        rx.send(ControlThreadCommand::ChangeVolume(sound.id, vol))
-            .unwrap();
+        rx.send(ControlThreadCommand::ChangeVolume(
+            sound.id,
+            vol as f32 / 100.0,
+        ))
+        .unwrap();
     };
 
     cx.render(rsx! {
-        view {
-            height: "49",
+        rect {
             width: "100%",
+            padding: "8",
 
-            text {
+            label {
                 "{&sound.name}"
             },
             Slider {
-                min: 0.0,
-                max: 1.0,
-                val: sound.volume,
-                onchange: volume_change
+                width: 100.0,
+                onmoved: volume_change
             }
         },
     })

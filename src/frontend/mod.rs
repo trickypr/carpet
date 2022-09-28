@@ -1,6 +1,5 @@
 mod category;
 mod prelude;
-mod slider;
 mod sound;
 
 use prelude::*;
@@ -20,13 +19,15 @@ pub fn app(cx: Scope) -> Element {
     });
 
     cx.render(rsx! {
-        view {
+        container {
             height: "100%",
             width: "100%",
             padding: "60",
             background: "black",
 
-            categories
+            ScrollView {
+                categories
+            }
         }
     })
 }
