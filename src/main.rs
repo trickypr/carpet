@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use freya::launch;
+use freya::{launch, launch_with_title};
 use frontend::app;
 use sounds::Holder;
 
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // being played. It works based on messages send from the state object
     thread::spawn(move || sounds::control(tx));
 
-    launch(app);
+    launch_with_title(app, "Carpet");
 
     Ok(())
 }
