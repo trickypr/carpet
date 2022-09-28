@@ -2,24 +2,7 @@ use std::sync::mpsc::Receiver;
 
 use crate::{config::Config, get_holder, ControlThreadCommand};
 
-fn sync_config(config: &Config) {
-    let mut holder = get_holder();
-
-    holder.is_playing = config.is_playing.unwrap_or(true);
-
-    for sound in &mut holder.sounds {
-        if let Some(config_volume) = config.sound_volume.get(&sound.name) {
-            sound.volume = *config_volume;
-        }
-    }
-
-    holder.correct_volume();
-}
-
-pub fn control(tx: Receiver<ControlThreadCommand>) {
-    let mut config = Config::load();
-    sync_config(&config);
-
+pub fn control(tx: Receiver<ControlThreadCommand>, mut config: Config) {
     loop {
         if let Ok(command) = tx.recv() {
             let mut holder = get_holder();
