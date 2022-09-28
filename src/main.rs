@@ -17,6 +17,9 @@ mod sounds;
 
 type SoundHolderMutex<'a> = &'a Arc<Mutex<sounds::Holder>>;
 
+/// The amount of time, in seconds, for the sound to fade in
+pub const FADE_IN_TIME: f32 = 1.5;
+
 pub static mut RX: Option<Sender<ControlThreadCommand>> = None;
 pub static mut SOUND: Option<Arc<Mutex<sounds::Holder>>> = None;
 
