@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use freya::{launch, launch_with_title};
+use freya::launch_with_title;
 use frontend::app;
 use sounds::Holder;
 

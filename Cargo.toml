@@ -21,9 +21,9 @@ dioxus = { git = "https://github.com/marc2332/dioxus", branch = "feat/attribute-
     "macro",
     "hooks",
 ] }
-freya-elements = { git = "https://github.com/marc2332/freya" }
-freya = { git = "https://github.com/marc2332/freya" }
-freya-components = { git = "https://github.com/marc2332/freya" }
+freya-elements = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
+freya = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
+freya-components = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
 
 # Config
 serde = { version = "1.0", features = ["derive"] }
