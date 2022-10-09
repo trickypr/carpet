@@ -29,7 +29,6 @@ pub fn category(cx: Scope<CategoryProps>) -> Element {
 
             label {
                 font_size: "30",
-                height: "30",
                 "{&category}"
             },
             category_sounds

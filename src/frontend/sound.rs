@@ -10,9 +10,10 @@ pub struct SoundProps {
 #[allow(non_snake_case)]
 pub fn Sound(cx: Scope<SoundProps>) -> Element {
     let sound = &cx.props.sound;
-    let sound_volume = cx.props.sound.volume as f64 * 100.0;
+    let sound_volume_state = use_state(&cx, || sound.volume as f64 * 100.0);
 
     let volume_change = move |vol: f64| {
+        sound_volume_state.set(vol);
         let rx = unsafe { RX.as_ref().unwrap() };
         rx.send(ControlThreadCommand::ChangeVolume(
             sound.id,
@@ -31,7 +32,7 @@ pub fn Sound(cx: Scope<SoundProps>) -> Element {
             },
             Slider {
                 width: 100.0,
-                starting_value: sound_volume,
+                value: *sound_volume_state.get(),
                 onmoved: volume_change
             }
         },

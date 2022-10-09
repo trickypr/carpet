@@ -17,13 +17,13 @@ lazy_static = "1.4.0"
 rodio = "0.15.0"
 
 # New UI dependancies
-dioxus = { git = "https://github.com/marc2332/dioxus", branch = "feat/attribute-value-any", features = [
+dioxus = { git = "https://github.com/marc2332/dioxus", branch = "fix/remove-node-listeners", features = [
     "macro",
     "hooks",
 ] }
-freya-elements = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
-freya = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
-freya-components = { git = "https://github.com/trickypr/freya", branch = "slider-default-value" }
+freya-elements = { git = "https://github.com/marc2332/freya", branch = "main" }
+freya = { git = "https://github.com/marc2332/freya", branch = "main" }
+freya-components = { git = "https://github.com/marc2332/freya", branch = "main" }
 
 # Config
 serde = { version = "1.0", features = ["derive"] }
