@@ -1,6 +1,6 @@
 use crate::{sounds::SoundMetadata, ControlThreadCommand, RX};
 
-use super::prelude::*;
+use freya::prelude::*;
 
 #[derive(Props, PartialEq)]
 pub struct SoundProps {
@@ -22,7 +22,7 @@ pub fn Sound(cx: Scope<SoundProps>) -> Element {
         .unwrap();
     };
 
-    cx.render(rsx! {
+    render!(
         rect {
             width: "100%",
             padding: "8",
@@ -36,5 +36,5 @@ pub fn Sound(cx: Scope<SoundProps>) -> Element {
                 onmoved: volume_change
             }
         },
-    })
+    )
 }

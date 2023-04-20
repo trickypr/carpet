@@ -8,22 +8,15 @@ edition = "2021"
 [profile.release]
 debug = 1
 
-[features]
-x11 = ["freya/x11"]
-wireframe = ["freya/wireframe"]
-
 [dependencies]
 lazy_static = "1.4.0"
 rodio = "0.15.0"
 
 # New UI dependancies
-dioxus = { git = "https://github.com/marc2332/dioxus", branch = "fix/remove-node-listeners", features = [
-    "macro",
-    "hooks",
-] }
-freya-elements = { git = "https://github.com/marc2332/freya", branch = "main" }
-freya = { git = "https://github.com/marc2332/freya", branch = "main" }
-freya-components = { git = "https://github.com/marc2332/freya", branch = "main" }
+dioxus = { git = "https://github.com/DioxusLabs/dioxus", rev="49c5a5043a16fc82210af146c345793dd448e519", features = ["macro", "hooks"]}
+freya-node-state = { git="https://github.com/marc2332/freya", rev="ca14282f4aa9af8c68b4d5911beff1960281f147"}
+freya = { git="https://github.com/marc2332/freya", rev="ca14282f4aa9af8c68b4d5911beff1960281f147" }
+freya-common = { git="https://github.com/marc2332/freya", rev="ca14282f4aa9af8c68b4d5911beff1960281f147" }
 
 # Config
 serde = { version = "1.0", features = ["derive"] }

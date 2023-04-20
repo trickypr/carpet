@@ -1,7 +1,7 @@
 use crate::sounds::{Category, SoundMetadata};
 
-use super::prelude::*;
 use super::sound::Sound;
+use freya::prelude::*;
 
 #[derive(Props, PartialEq)]
 pub struct CategoryProps {
@@ -13,16 +13,7 @@ pub fn category(cx: Scope<CategoryProps>) -> Element {
     let category = cx.props.category;
     let sounds = &cx.props.sounds;
 
-    let category_sounds = sounds
-        .iter()
-        .filter(|sound| sound.category == category)
-        .map(|sound| {
-            cx.render(rsx!(Sound {
-                sound: sound.clone()
-            }))
-        });
-
-    cx.render(rsx! {
+    render!(
         container {
             width: "100%",
             padding: "32",
@@ -31,7 +22,14 @@ pub fn category(cx: Scope<CategoryProps>) -> Element {
                 font_size: "30",
                 "{&category}"
             },
-            category_sounds
+            sounds
+                .iter()
+                .filter(|sound| sound.category == category)
+                .map(|sound| {
+                    render!(Sound {
+                        sound: sound.clone(),
+                    })
+                })
         }
-    })
+    )
 }

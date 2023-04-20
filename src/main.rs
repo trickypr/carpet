@@ -7,7 +7,7 @@ use std::{
 };
 
 use config::Config;
-use freya::launch_with_title;
+use freya::launch::launch_with_title;
 use frontend::app;
 use sounds::Holder;
 
